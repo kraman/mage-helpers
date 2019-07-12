@@ -1,6 +1,7 @@
-package kind
+package kubernetes
 
 import (
+	"github.com/magefile/mage/mg"
 	"github.com/pkg/errors"
 	"os"
 	"strings"
@@ -18,6 +19,17 @@ func buildKind() error {
 		}
 	}
 	return nil
+}
+
+func LoadKindConfig() error {
+	mg.SerialDeps(CreateKindCluster)
+	clusterName := os.Getenv("CLUSTER_NAME")
+	if clusterName == "" {
+		clusterName = "test-cluster"
+	}
+	kubeConfigPath, err := sh.Output("kind", "get", "kubeconfig-path", "--name", clusterName)
+	os.Setenv("KUBECONFIG", kubeConfigPath)
+	return err
 }
 
 func CreateKindCluster() error{
