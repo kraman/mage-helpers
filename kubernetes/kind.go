@@ -1,14 +1,17 @@
 package kubernetes
 
 import (
+	"github.com/spf13/viper"
 	"github.com/magefile/mage/mg"
 	"github.com/pkg/errors"
+	"github.com/magefile/mage/sh"
+
 	"os"
 	"strings"
 	"log"
 	"os/exec"
 
-	"github.com/magefile/mage/sh"
+	_ "github.com/kraman/mage-helpers/config"
 )
 
 func buildKind() error {
@@ -23,20 +26,14 @@ func buildKind() error {
 
 func LoadKindConfig() error {
 	mg.SerialDeps(CreateKindCluster)
-	clusterName := os.Getenv("CLUSTER_NAME")
-	if clusterName == "" {
-		clusterName = "test-cluster"
-	}
+	clusterName := viper.GetString("cluster_name")
 	kubeConfigPath, err := sh.Output("kind", "get", "kubeconfig-path", "--name", clusterName)
 	os.Setenv("KUBECONFIG", kubeConfigPath)
 	return err
 }
 
 func CreateKindCluster() error{
-	clusterName := os.Getenv("CLUSTER_NAME")
-	if clusterName == "" {
-		clusterName = "test-cluster"
-	}
+	clusterName := viper.GetString("cluster_name")
 	if err := buildKind(); err != nil {
 		return err
 	}
@@ -56,10 +53,7 @@ func CreateKindCluster() error{
 }
 
 func DestroyKindCluster() error{
-	clusterName := os.Getenv("CLUSTER_NAME")
-	if clusterName == "" {
-		clusterName = "test-cluster"
-	}
+	clusterName := viper.GetString("cluster_name")
 	if err := buildKind(); err != nil {
 		return err
 	}

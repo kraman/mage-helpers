@@ -1,20 +1,22 @@
 package protobuf
 
 import (
-	"github.com/kraman/mage-helpers/net"
-	"github.com/magefile/mage/target"
+	"github.com/pkg/errors"
 	"strings"
 	"io/ioutil"
 	"fmt"
 	"runtime"
-	"io"
 	"path/filepath"
-	"net/http"
 	"os"
-
+	
+	"github.com/magefile/mage/target"
 	"github.com/mholt/archiver"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+	"github.com/spf13/viper"
+
+	"github.com/kraman/mage-helpers/net"
+	_ "github.com/kraman/mage-helpers/config"
 )
 
 var (
@@ -81,7 +83,8 @@ func getProtoc() (err error) {
 	defer os.RemoveAll(tempDir)
 
 	protocZip := filepath.Join(tempDir, "protoc.zip")
-	if err = net.Download(fmt.Sprintf("https://github.com/protocolbuffers/protobuf/releases/download/v3.8.0/protoc-3.8.0-%s-%s.zip", goos, "x86_64"), protocZip); err != nil {
+	protocVersion := viper.GetString("protoc_version")
+	if err = net.Download(fmt.Sprintf("https://github.com/protocolbuffers/protobuf/releases/download/v%s/protoc-%s-%s-%s.zip", protocVersion, protocVersion, goos, "x86_64"), protocZip); err != nil {
 		return err
 	}
 

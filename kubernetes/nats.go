@@ -8,9 +8,12 @@ import (
 	"log"
 	"strings"
 	
+	"github.com/spf13/viper"
 	"github.com/pkg/errors"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+
+	_ "github.com/kraman/mage-helpers/config"
 )
 
 const natsClusterDef = `
@@ -19,7 +22,7 @@ kind: "NatsCluster"
 metadata:
   name: "nats-cluster"
 spec:
-  size: 1
+  size: %d
 `
 
 const natsStreamingClusterDef = `
@@ -28,7 +31,7 @@ kind: "NatsStreamingCluster"
 metadata:
   name: "stan-cluster"
 spec:
-  size: 1
+  size: %d
   natsSvc: "nats-cluster"
 `
 
@@ -42,11 +45,12 @@ func checkKubeResource(t, name string) (bool, error) {
 
 func waitForKubeResource(t, name string) (error) {
 	tick := time.Tick(time.Second*1)
-	timeout := time.After(time.Second*30)
+	timeout := time.After(time.Minute*2)
 	for {
 		select {
 		case <- tick:
 			o, _ := sh.Output("kubectl", "get", t, name)
+			log.Println(o)
 			if strings.Contains(o, "1/1") {
 				return nil
 			}
@@ -81,7 +85,8 @@ func StartNATS() error {
 		return err
 	}
 
-	ok, err = checkKubeResource("pod", "nats-cluster-1")
+	natsClusterSize := viper.GetInt("nats_cluster_size")
+	ok, err = checkKubeResource("pod", fmt.Sprintf("nats-cluster-%d", natsClusterSize))
 	if err != nil {
 		return err
 	}
@@ -94,13 +99,13 @@ func StartNATS() error {
 		return errors.Wrapf(err, "unable to create temp file")
 	}
 	defer os.Remove(f.Name())
-	fmt.Fprintln(f, natsClusterDef)
+	fmt.Fprintf(f, natsClusterDef, natsClusterSize)
 	f.Close()
 	if err := sh.Run("kubectl", "apply", "-f", f.Name()); err != nil {
 		return err
 	}
 	
-	return waitForKubeResource("pod", "nats-cluster-1")
+	return waitForKubeResource("pod", fmt.Sprintf("nats-cluster-%d", natsClusterSize))
 }
 
 func StartNATSStreaming() error {
@@ -124,17 +129,27 @@ func StartNATSStreaming() error {
 	if err := waitForKubeResource("deployment", "nats-streaming-operator"); err != nil {
 		return err
 	}
+	
+	stanClusterSize := viper.GetInt("stan_cluster_size")
+	ok, err = checkKubeResource("pod", fmt.Sprintf("stan-cluster-%d", stanClusterSize))
+	if err != nil {
+		return err
+	}
+	if ok {
+		return nil
+	}
 
 	f, err := ioutil.TempFile("", "")
 	if err != nil {
 		return errors.Wrapf(err, "unable to create temp file")
 	}
 	defer os.Remove(f.Name())
-	fmt.Fprintln(f, natsStreamingClusterDef)
+
+	fmt.Fprintf(f, natsStreamingClusterDef, stanClusterSize)
 	f.Close()
 	if err := sh.Run("kubectl", "apply", "-f", f.Name()); err != nil {
 		return err
 	}
 	
-	return waitForKubeResource("pod", "stan-cluster-1")
+	return waitForKubeResource("pod", fmt.Sprintf("stan-cluster-%d", stanClusterSize))
 }

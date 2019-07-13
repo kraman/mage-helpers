@@ -1,6 +1,8 @@
 package net
 
 import (
+	"io/ioutil"
+	"github.com/pkg/errors"
 	"io"
 	"path/filepath"
 	"net/http"
@@ -17,6 +19,10 @@ func Download(url, dest string) error {
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.Status != "200" {
+		msg, _ := ioutil.ReadAll(resp.Body)
+		return errors.Errorf("unable to download protoc: %s", string(msg))
+	}
 
 	if err := os.MkdirAll(filepath.Dir(dest), 0750); err != nil {
 		return err
